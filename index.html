@@ -1143,5 +1143,11 @@
       updateNavigation();
     });
   </script>
+    // Expose functions to global scope for onclick handlers
+    window.showSignup = showSignup;
+    window.showLanding = showLanding;
+    window.handleCampsAccess = handleCampsAccess;
+    window.logout = logout;
+    window.togglePassword = togglePassword;
 </body>
 </html>
