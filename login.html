@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Login - Flood Rehabilitation Project</title>
+  <script type="module" src="src/main.js"></script>
   <style>
     * {
       margin: 0;
@@ -252,7 +253,9 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { authManager } from './src/utils/auth.js'
+
     function showMessage(message, type = 'success') {
       const existingMessages = document.querySelectorAll('.message');
       existingMessages.forEach(msg => msg.remove());
@@ -318,7 +321,7 @@
 
     // Check if user is already logged in
     document.addEventListener('DOMContentLoaded', () => {
-      const currentUser = getCurrentUser();
+      const currentUser = authManager.getCurrentUser();
       if (currentUser) {
         showMessage(`Welcome back, ${currentUser.name}!`, 'success');
         setTimeout(() => {
@@ -331,7 +334,7 @@
       }
     });
 
-    document.getElementById('loginForm').addEventListener('submit', (e) => {
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const loginBtn = document.getElementById('loginBtn');
@@ -348,27 +351,23 @@
         return;
       }
 
-      // Simulate authentication delay
-      setTimeout(() => {
-        const userData = {
-          name: formData.email.includes('volunteer') ? 'Volunteer User' : 'User',
-          email: formData.email,
-          role: formData.email.includes('volunteer') ? 'volunteer' : 'refugee',
-          contact: '123-456-7890',
-          loginTime: new Date().toISOString()
-        };
-
-        setCurrentUser(userData);
+      const result = await authManager.login(formData.email, formData.password);
+      
+      if (result.success) {
         showMessage('Login successful!', 'success');
-        
         setTimeout(() => {
-          if (userData.role === 'volunteer') {
+          if (result.user.role === 'volunteer') {
             window.location.href = 'dashboard.html';
           } else {
             window.location.href = 'camps.html';
           }
         }, 1000);
-      }, 1000);
+      } else {
+        showMessage(`❌ Login failed: ${result.error}`, 'error');
+      }
+
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Login';
     });
 
     // Reset button state if user navigates back

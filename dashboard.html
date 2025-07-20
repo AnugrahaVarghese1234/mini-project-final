@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Volunteer Dashboard - Flood Rehabilitation Project</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script type="module" src="src/main.js"></script>
   <style>
     * {
       margin: 0;
@@ -699,7 +700,10 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    import { authManager } from './src/utils/auth.js'
+    import { campManager } from './src/utils/camps.js'
+
     let lastAddedCampId = null;
 
     function showMessage(message, type = 'success') {
@@ -738,24 +742,13 @@
     }
 
     function getCurrentUser() {
-      try {
-        const userData = localStorage.getItem('currentUser');
-        return userData ? JSON.parse(userData) : null;
-      } catch (error) {
-        console.error('Error loading user data:', error);
-        return null;
-      }
+      return authManager.getCurrentUser()
     }
 
     function clearCurrentUser() {
-      try {
-        localStorage.removeItem('currentUser');
-        updateNavigation();
-        return true;
-      } catch (error) {
-        console.error('Error clearing user data:', error);
-        return false;
-      }
+      const result = authManager.clearCurrentUser()
+      updateNavigation()
+      return result
     }
 
     function updateNavigation() {
@@ -773,97 +766,6 @@
         userInfo.style.display = 'none';
         loginLink.style.display = 'inline-block';
         logoutBtn.style.display = 'none';
-      }
-    }
-
-    function initializeCamps() {
-      const existingCamps = localStorage.getItem('camps');
-      if (!existingCamps) {
-        // Initialize with default camps if none exist
-        const defaultCamps = [
-          {
-            id: 1,
-            name: "Central School Grounds",
-            beds: 24,
-            resources: ["Food", "Water", "Medical Aid", "Blankets"],
-            contact: "+91 98765 43210",
-            ambulance: "Yes",
-            type: "default"
-          },
-          {
-            id: 2,
-            name: "Community Hall",
-            beds: 12,
-            resources: ["Food", "Water", "Blankets", "Clothing"],
-            contact: "+91 98765 11223",
-            ambulance: "Nearby",
-            type: "default"
-          },
-          {
-            id: 3,
-            name: "Government High School",
-            beds: 30,
-            resources: ["Food", "Water", "First Aid", "Hygiene Kits"],
-            contact: "+91 98765 77889",
-            ambulance: "Yes",
-            type: "default"
-          }
-        ];
-        localStorage.setItem('camps', JSON.stringify(defaultCamps));
-      }
-    }
-
-    function getCamps() {
-      try {
-        initializeCamps();
-        const camps = localStorage.getItem('camps');
-        return camps ? JSON.parse(camps) : [];
-      } catch (error) {
-        console.error('Error loading camps:', error);
-        return [];
-      }
-    }
-
-    function saveCamps(camps) {
-      try {
-        localStorage.setItem('camps', JSON.stringify(camps));
-        // Trigger storage event for other tabs/windows
-        window.dispatchEvent(new StorageEvent('storage', {
-          key: 'camps',
-          newValue: JSON.stringify(camps)
-        }));
-        return true;
-      } catch (error) {
-        console.error('Error saving camps:', error);
-        return false;
-      }
-    }
-
-    function getVolunteerAssignments() {
-      try {
-        const assignments = localStorage.getItem('volunteerAssignments');
-        return assignments ? JSON.parse(assignments) : [];
-      } catch (error) {
-        console.error('Error loading volunteer assignments:', error);
-        return [];
-      }
-    }
-
-    function saveVolunteerAssignment(volunteerName, campName) {
-      try {
-        const assignments = getVolunteerAssignments();
-        const newAssignment = {
-          id: assignments.length + 1,
-          volunteer: volunteerName,
-          camp: campName,
-          date: new Date().toISOString()
-        };
-        assignments.push(newAssignment);
-        localStorage.setItem('volunteerAssignments', JSON.stringify(assignments));
-        return true;
-      } catch (error) {
-        console.error('Error saving volunteer assignment:', error);
-        return false;
       }
     }
 
@@ -903,7 +805,7 @@
     }
 
     // Initialize page
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       updateNavigation();
       
       if (!checkAccess()) {
@@ -916,15 +818,18 @@
       showMessage(`✨ Welcome to your dashboard, ${currentUser.name}!`, 'success');
       
       // Initialize dashboard
-      loadCamps();
-      loadVolunteerHistory();
+      await loadCamps();
+      await loadVolunteerHistory();
     });
 
     // Load and manage camps
-    let camps = getCamps();
+    let camps = [];
 
-    function loadCamps() {
-      camps = getCamps();
+    async function loadCamps() {
+      const result = await campManager.loadCamps();
+      if (result.success) {
+        camps = campManager.getCamps();
+      }
       renderCamps();
     }
 
@@ -965,8 +870,8 @@
             <p><strong>📦 Resources:</strong> ${camp.resources.join(', ')}</p>
             ${camp.contact ? `<p><strong>📞 Contact:</strong> ${camp.contact}</p>` : ''}
             ${camp.ambulance ? `<p><strong>🚑 Ambulance:</strong> ${camp.ambulance}</p>` : ''}
-            ${camp.addedBy ? `<p><strong>👤 Added by:</strong> ${camp.addedBy}</p>` : ''}
-            ${camp.addedDate ? `<p><strong>📅 Added:</strong> ${new Date(camp.addedDate).toLocaleDateString()}</p>` : ''}
+            ${camp.added_by ? `<p><strong>👤 Added by volunteer</strong></p>` : ''}
+            ${camp.created_at ? `<p><strong>📅 Added:</strong> ${new Date(camp.created_at).toLocaleDateString()}</p>` : ''}
           </div>
           ${camp.type !== 'default' ? `<button class="btn btn-danger" onclick="deleteCamp(${camp.id})">🗑️ Remove</button>` : ''}
         `;
@@ -983,12 +888,15 @@
       });
     }
 
-    function deleteCamp(campId) {
+    async function deleteCamp(campId) {
       if (confirm('Are you sure you want to remove this camp? This action cannot be undone.')) {
-        camps = camps.filter(camp => camp.id !== campId);
-        saveCamps(camps);
-        renderCamps();
-        showMessage('✅ Camp removed successfully! Changes will be reflected on the camps page.', 'success');
+        const result = await campManager.deleteCamp(campId);
+        if (result.success) {
+          await loadCamps();
+          showMessage('✅ Camp removed successfully! Changes will be reflected on the camps page.', 'success');
+        } else {
+          showMessage(`❌ ${result.error}`, 'error');
+        }
       }
     }
 
@@ -1005,7 +913,7 @@
     }
 
     // Add camp form
-    document.getElementById('addCampForm').addEventListener('submit', (e) => {
+    document.getElementById('addCampForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const addBtn = document.getElementById('addCampBtn');
@@ -1036,25 +944,20 @@
         .filter(r => r.length > 0);
 
       const newCamp = {
-        id: camps.length ? Math.max(...camps.map(c => c.id)) + 1 : 1,
         name: formData.campName,
         beds: beds,
         resources: resources.length > 0 ? resources : ['Basic supplies'],
         contact: formData.campContact || '',
         ambulance: formData.campAmbulance || 'No',
-        addedBy: document.getElementById('volunteerName').textContent,
-        addedDate: new Date().toISOString(),
-        type: 'volunteer-added'
       };
 
-      lastAddedCampId = newCamp.id;
-      camps.push(newCamp);
-      
-      if (saveCamps(camps)) {
-        renderCamps();
-        scrollToNewCamp(newCamp.id);
+      const result = await campManager.addCamp(newCamp);
+      if (result.success) {
+        lastAddedCampId = result.camp.id;
+        await loadCamps();
+        scrollToNewCamp(result.camp.id);
         e.target.reset();
-        showMessage(`✅ Camp "${newCamp.name}" added successfully! It will now appear on the camps page.`, 'success');
+        showMessage(`✅ Camp "${result.camp.name}" added successfully! It will now appear on the camps page.`, 'success');
         
         setTimeout(() => {
           document.getElementById('campsSection').scrollIntoView({
@@ -1063,7 +966,7 @@
           });
         }, 500);
       } else {
-        showMessage('❌ Failed to add camp. Please try again.', 'error');
+        showMessage(`❌ ${result.error}`, 'error');
         lastAddedCampId = null;
       }
 
@@ -1072,7 +975,7 @@
     });
 
     // Volunteer assignment form
-    document.getElementById('volunteerAssignmentForm').addEventListener('submit', (e) => {
+    document.getElementById('volunteerAssignmentForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const volunteerBtn = document.getElementById('volunteerBtn');
@@ -1089,60 +992,54 @@
       }
 
       const camp = camps.find(c => c.id == selectedCampId);
-      const volunteerName = document.getElementById('volunteerName').textContent;
       
-      if (saveVolunteerAssignment(volunteerName, camp.name)) {
-        showMessage(`🎉 Thank you, ${volunteerName}, for volunteering at "${camp.name}"!`, 'success');
-        loadVolunteerHistory();
+      const result = await campManager.addVolunteerAssignment(selectedCampId);
+      if (result.success) {
+        const currentUser = authManager.getCurrentUser();
+        showMessage(`🎉 Thank you, ${currentUser.name}, for volunteering at "${camp.name}"!`, 'success');
+        await loadVolunteerHistory();
         document.querySelector('input[name="selectedCamp"]:checked').checked = false;
       } else {
-        showMessage('❌ Failed to save volunteer assignment. Please try again.', 'error');
+        showMessage(`❌ ${result.error}`, 'error');
       }
 
       volunteerBtn.disabled = false;
       volunteerBtn.textContent = '✅ Confirm Volunteering';
     });
 
-    function loadVolunteerHistory() {
+    async function loadVolunteerHistory() {
       const historyEl = document.getElementById('volunteerHistory');
-      const assignments = getVolunteerAssignments();
-      const volunteerName = document.getElementById('volunteerName').textContent;
       
-      const userAssignments = assignments.filter(a => a.volunteer === volunteerName);
+      const result = await campManager.getVolunteerHistory();
+      if (!result.success) {
+        historyEl.innerHTML = '<p style="color: #ef4444;">Error loading volunteer history.</p>';
+        return;
+      }
       
-      if (userAssignments.length === 0) {
+      if (result.assignments.length === 0) {
         historyEl.innerHTML = '<p style="color: #64748b; font-size: 1.1rem; text-align: center; padding: 2rem; background: rgba(248, 250, 252, 0.5); border-radius: 12px;">No volunteer history yet. Select a camp above to start volunteering! 🤝</p>';
         return;
       }
 
-      historyEl.innerHTML = userAssignments
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
+      historyEl.innerHTML = result.assignments
         .map(assignment => `
           <div class="camp-item">
             <div class="camp-info">
-              <h4>🏕️ ${assignment.camp}</h4>
-              <p><strong>📅 Volunteer Date:</strong> ${new Date(assignment.date).toLocaleDateString()}</p>
-              <p><strong>⏰ Time:</strong> ${new Date(assignment.date).toLocaleTimeString()}</p>
+              <h4>🏕️ ${assignment.camps?.name || 'Unknown Camp'}</h4>
+              <p><strong>📅 Volunteer Date:</strong> ${new Date(assignment.created_at).toLocaleDateString()}</p>
+              <p><strong>⏰ Time:</strong> ${new Date(assignment.created_at).toLocaleTimeString()}</p>
             </div>
           </div>
         `).join('');
     }
 
-    // Listen for storage changes from other tabs/windows
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'camps') {
-        loadCamps();
-        console.log('🔄 Camps updated from another tab');
-      }
+    // Subscribe to camp changes
+    campManager.subscribe(() => {
+      loadCamps();
     });
 
-    // Auto-refresh camps every 2 minutes
-    setInterval(() => {
-      if (getCurrentUser() && getCurrentUser().role === 'volunteer') {
-        loadCamps();
-        console.log('🔄 Auto-refreshing camp data...');
-      }
-    }, 120000);
+    // Make functions available globally
+    window.deleteCamp = deleteCamp;
   </script>
 </body>
 </html>

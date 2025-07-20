@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Flood Rehabilitation Project - Emergency Relief Services</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script type="module" src="src/main.js"></script>
   <style>
     * {
       margin: 0;
@@ -874,7 +875,10 @@
     </div>
   </footer>
 
-  <script>
+  <script type="module">
+    import { authManager } from './src/utils/auth.js'
+    import { campManager } from './src/utils/camps.js'
+
     // Utility functions
     function showMessage(message, type = 'success') {
       const existingMessages = document.querySelectorAll('.message');
@@ -941,35 +945,17 @@
     }
 
     function setCurrentUser(userData) {
-      try {
-        localStorage.setItem('currentUser', JSON.stringify(userData));
-        updateNavigation();
-        return true;
-      } catch (error) {
-        console.error('Error saving user data:', error);
-        return false;
-      }
+      return authManager.setCurrentUser(userData)
     }
 
     function getCurrentUser() {
-      try {
-        const userData = localStorage.getItem('currentUser');
-        return userData ? JSON.parse(userData) : null;
-      } catch (error) {
-        console.error('Error loading user data:', error);
-        return null;
-      }
+      return authManager.getCurrentUser()
     }
 
     function clearCurrentUser() {
-      try {
-        localStorage.removeItem('currentUser');
-        updateNavigation();
-        return true;
-      } catch (error) {
-        console.error('Error clearing user data:', error);
-        return false;
-      }
+      const result = authManager.clearCurrentUser()
+      updateNavigation()
+      return result
     }
 
     function handleCampsAccess() {
@@ -1081,7 +1067,7 @@
     });
 
     // Form submissions
-    refugeeForm.addEventListener('submit', (e) => {
+    refugeeForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const submitBtn = e.target.querySelector('button[type="submit"]');
       const originalText = submitBtn.textContent;
@@ -1099,16 +1085,21 @@
         return;
       }
 
-      // Remove password from stored data for security
-      const { password, ...userDataToStore } = formData;
-      const userData = { ...userDataToStore, role: 'refugee' };
+      const userData = { ...formData, role: 'refugee' };
       
-      setCurrentUser(userData);
-      showMessage('✅ Registration successful! You can now access relief camps...', 'success');
-      setTimeout(() => window.location.href = 'camps.html', 2000);
+      const result = await authManager.register(userData);
+      if (result.success) {
+        showMessage('✅ Registration successful! You can now access relief camps...', 'success');
+        setTimeout(() => window.location.href = 'camps.html', 2000);
+      } else {
+        showMessage(`❌ Registration failed: ${result.error}`, 'error');
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
     });
 
-    volunteerForm.addEventListener('submit', (e) => {
+    volunteerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const submitBtn = e.target.querySelector('button[type="submit"]');
       const originalText = submitBtn.textContent;
@@ -1133,13 +1124,18 @@
         return;
       }
 
-      // Remove password from stored data for security
-      const { password, ...userDataToStore } = formData;
-      const userData = { ...userDataToStore, role: 'volunteer' };
+      const userData = { ...formData, role: 'volunteer' };
       
-      setCurrentUser(userData);
-      showMessage('✅ Volunteer application successful! Redirecting to dashboard...', 'success');
-      setTimeout(() => window.location.href = 'dashboard.html', 2000);
+      const result = await authManager.register(userData);
+      if (result.success) {
+        showMessage('✅ Volunteer application successful! Redirecting to dashboard...', 'success');
+        setTimeout(() => window.location.href = 'dashboard.html', 2000);
+      } else {
+        showMessage(`❌ Registration failed: ${result.error}`, 'error');
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
     });
 
     // Initialize page
