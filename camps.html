@@ -787,7 +787,7 @@
         <p style="color: #64748b; margin-bottom: 1.5rem;">Access additional resources or help coordinate relief efforts in your community.</p>
         <div class="action-buttons">
           <a href="index.html" class="btn btn-outline">🏠 Back to Home</a>
-          <button class="btn btn-secondary" onclick="refreshCamps()">🔄 Refresh Camps</button>
+          <button class="btn btn-secondary" onclick="refreshCamps(event)">🔄 Refresh Camps</button>
           <a href="login.html" class="btn btn-primary" id="loginActionBtn">🔐 Login to Access More</a>
           <a href="dashboard.html" class="btn btn-primary" id="dashboardActionBtn" style="display: none;">📊 Go to Dashboard</a>
         </div>
@@ -1136,22 +1136,29 @@
     }
 
     async function refreshCamps() {
-      showMessage('🔄 Camp information refreshed successfully!', 'success');
-      await campManager.loadCamps();
-      await campManager.loadUserSelection();
-      renderCamps();
-      updateUserSelectionStatus();
-      
+      return new Promise(async (resolve) => {
+        showMessage('🔄 Camp information refreshed successfully!', 'success');
+        await campManager.loadCamps();
+        await campManager.loadUserSelection();
+        renderCamps();
+        updateUserSelectionStatus();
+        resolve();
+      });
+    }
+
+    function handleRefreshClick(event) {
       // Simulate loading effect
       const refreshBtn = event.target;
       const originalText = refreshBtn.textContent;
       refreshBtn.disabled = true;
       refreshBtn.textContent = '🔄 Refreshing...';
       
-      setTimeout(() => {
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = originalText;
-      }, 2000);
+      refreshCamps().then(() => {
+        setTimeout(() => {
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = originalText;
+        }, 2000);
+      });
     }
 
     // Subscribe to camp changes
@@ -1171,9 +1178,7 @@
       // Load data from database
       await campManager.loadCamps();
       await campManager.loadUserSelection();
-      
-      renderCamps();
-      updateUserSelectionStatus();
+      await refreshCamps();
       
       const currentUser = getCurrentUser();
       
@@ -1204,7 +1209,8 @@
     // Make functions available globally
     window.selectCamp = selectCamp;
     window.cancelSelection = cancelSelection;
-    window.refreshCamps = refreshCamps;
+    window.refreshCamps = handleRefreshClick;
+    window.logout = logout;
   </script>
 </body>
 </html>
