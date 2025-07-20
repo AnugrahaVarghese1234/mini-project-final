@@ -876,48 +876,6 @@
   </footer>
 
   <script>
-    // Mock auth and camp managers for standalone operation
-    const authManager = {
-      getCurrentUser() {
-        try {
-          const userData = localStorage.getItem('currentUser');
-          return userData ? JSON.parse(userData) : null;
-        } catch (error) {
-          console.error('Error loading user data:', error);
-          return null;
-        }
-      },
-      setCurrentUser(userData) {
-        try {
-          localStorage.setItem('currentUser', JSON.stringify(userData));
-          return true;
-        } catch (error) {
-          console.error('Error saving user data:', error);
-          return false;
-        }
-      },
-      clearCurrentUser() {
-        try {
-          localStorage.removeItem('currentUser');
-          return true;
-        } catch (error) {
-          console.error('Error clearing user data:', error);
-          return false;
-        }
-      },
-      async register(userData) {
-        try {
-          // Simple registration - just store the user data
-          const { password, ...userToStore } = userData;
-          this.setCurrentUser(userToStore);
-          return { success: true, user: userToStore };
-        } catch (error) {
-          console.error('Registration error:', error);
-          return { success: false, error: error.message };
-        }
-      }
-    };
-
     // Utility functions
     function showMessage(message, type = 'success') {
       const existingMessages = document.querySelectorAll('.message');
@@ -983,22 +941,9 @@
       }
     }
 
-    function setCurrentUser(userData) {
-      return authManager.setCurrentUser(userData)
-    }
-
-    function getCurrentUser() {
-      return authManager.getCurrentUser()
-    }
-
-    function clearCurrentUser() {
-      const result = authManager.clearCurrentUser()
-      updateNavigation()
-      return result
-    }
 
     function handleCampsAccess() {
-      const currentUser = getCurrentUser();
+      const currentUser = window.authManager?.getCurrentUser();
       if (!currentUser) {
         showMessage('🔐 Please login or register to access relief camps information.', 'error');
         setTimeout(() => {
@@ -1015,7 +960,7 @@
     }
 
     function updateNavigation() {
-      const currentUser = getCurrentUser();
+      const currentUser = window.authManager?.getCurrentUser();
       const userInfo = document.getElementById('userInfo');
       const loginLink = document.getElementById('loginLink');
       const signupBtn = document.getElementById('signupBtn');
@@ -1069,7 +1014,8 @@
 
     function logout() {
       if (confirm('Are you sure you want to logout?')) {
-        clearCurrentUser();
+        window.authManager?.clearCurrentUser();
+        updateNavigation();
         showMessage('✅ Successfully logged out!', 'success');
         showLanding();
       }
@@ -1126,7 +1072,7 @@
 
       const userData = { ...formData, role: 'refugee' };
       
-      const result = await authManager.register(userData);
+      const result = await window.authManager?.register(userData);
       if (result.success) {
         showMessage('✅ Registration successful! You can now access relief camps...', 'success');
         setTimeout(() => window.location.href = 'camps.html', 2000);
@@ -1165,7 +1111,7 @@
 
       const userData = { ...formData, role: 'volunteer' };
       
-      const result = await authManager.register(userData);
+      const result = await window.authManager?.register(userData);
       if (result.success) {
         showMessage('✅ Volunteer application successful! Redirecting to dashboard...', 'success');
         setTimeout(() => window.location.href = 'dashboard.html', 2000);
@@ -1179,7 +1125,15 @@
 
     // Initialize page
     document.addEventListener('DOMContentLoaded', () => {
-      updateNavigation();
+      // Wait for authManager to be available
+      const checkAuthManager = () => {
+        if (window.authManager) {
+          updateNavigation();
+        } else {
+          setTimeout(checkAuthManager, 100);
+        }
+      };
+      checkAuthManager();
     });
 
     // Expose functions to global scope for onclick handlers
