@@ -875,9 +875,48 @@
     </div>
   </footer>
 
-  <script type="module">
-    import { authManager } from './src/utils/auth.js'
-    import { campManager } from './src/utils/camps.js'
+  <script>
+    // Mock auth and camp managers for standalone operation
+    const authManager = {
+      getCurrentUser() {
+        try {
+          const userData = localStorage.getItem('currentUser');
+          return userData ? JSON.parse(userData) : null;
+        } catch (error) {
+          console.error('Error loading user data:', error);
+          return null;
+        }
+      },
+      setCurrentUser(userData) {
+        try {
+          localStorage.setItem('currentUser', JSON.stringify(userData));
+          return true;
+        } catch (error) {
+          console.error('Error saving user data:', error);
+          return false;
+        }
+      },
+      clearCurrentUser() {
+        try {
+          localStorage.removeItem('currentUser');
+          return true;
+        } catch (error) {
+          console.error('Error clearing user data:', error);
+          return false;
+        }
+      },
+      async register(userData) {
+        try {
+          // Simple registration - just store the user data
+          const { password, ...userToStore } = userData;
+          this.setCurrentUser(userToStore);
+          return { success: true, user: userToStore };
+        } catch (error) {
+          console.error('Registration error:', error);
+          return { success: false, error: error.message };
+        }
+      }
+    };
 
     // Utility functions
     function showMessage(message, type = 'success') {
@@ -1142,12 +1181,13 @@
     document.addEventListener('DOMContentLoaded', () => {
       updateNavigation();
     });
-  </script>
+
     // Expose functions to global scope for onclick handlers
     window.showSignup = showSignup;
     window.showLanding = showLanding;
     window.handleCampsAccess = handleCampsAccess;
     window.logout = logout;
     window.togglePassword = togglePassword;
+  </script>
 </body>
 </html>
